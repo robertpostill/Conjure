@@ -159,8 +159,8 @@
   (is (nil? (model-unit-test-namespace ""))))
 
 (deftest test-model-unit-test-namespace
-  (is (= (fixture-namespace "test") "test.fixture.test"))
-  (is (= (fixture-namespace "foo-bar") "test.fixture.foo-bar"))
-  (is (= (fixture-namespace "foo_bar") "test.fixture.foo-bar"))
+  (is (= (fixture-namespace "test") "fixture.test"))
+  (is (= (fixture-namespace "foo-bar") "fixture.foo-bar"))
+  (is (= (fixture-namespace "foo_bar") "fixture.foo-bar"))
   (is (nil? (fixture-namespace nil)))
   (is (nil? (fixture-namespace ""))))
