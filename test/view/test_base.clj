@@ -99,22 +99,64 @@
 (deftest test-options-from-records
   (is (= 
     { "name1" { :value "value1" } } 
-    (options-from-records [{ :name "name1", :value "value1" }] :name :value)))
+    (options-from-records 
+      { :records [{ :name "name1", :value "value1" }], 
+        :name-key :name, 
+        :value-key :value })))
   (is (= 
     { "name1" { :value "value1" }, "name2" { :value "value2" } } 
     (options-from-records 
-      [{ :name "name1", :value "value1" }, { :name "name2", :value "value2" }] 
-      :name
-      :value)))
+      { :records [{ :name "name1", :value "value1" }, { :name "name2", :value "value2" }], 
+        :name-key :name,
+        :value-key :value })))
   (is (= 
     { "name1" { :value "value1" }, "name2" { :value "value2" }, "name3" { :value "value3" } } 
     (options-from-records 
-      [{ :name "name1", :value "value1" }, { :name "name2", :value "value2" }, { :name "name3", :value "value3" }] 
-      :name
-      :value)))
+      { :records [{ :name "name1", :value "value1" }, { :name "name2", :value "value2" }, { :name "name3", :value "value3" }], 
+        :name-key :name
+        :value-key :value })))
   (is (= 
     { "name1" { :value "value1" } } 
-    (options-from-records [{ :name "name1", :id "value1" }] :name)))
+    (options-from-records 
+      { :records [{ :name "name1", :id "value1" }],
+        :name-key :name })))
   (is (= 
     { "name1" { :value "value1" } } 
-    (options-from-records [{ :name "name1", :id "value1" }]))))
+    (options-from-records 
+      { :records [{ :name "name1", :id "value1" }] }))))
+
+(deftest test-image-path
+  (is (= "/images/edit.png" (image-path "edit.png")))
+  (is (= "/images/icons/edit.png" (image-path "icons/edit.png")))
+  (is (= "/icons/edit.png" (image-path "/icons/edit.png")))
+  (is (= "http://www.conjureapplication.com/img/edit.png" 
+    (image-path "http://www.conjureapplication.com/img/edit.png"))))
+
+(deftest test-image-tag
+  (is (= "<img src=\"/images/icon.png\" />" (image-tag "icon.png")))
+  (is (= "<img src=\"/icons/icon.png\" />" (image-tag "/icons/icon.png")))
+  (is (= "<img class=\"menu-icon\" src=\"/icons/icon.png\" />" (image-tag "/icons/icon.png" { :class "menu-icon" }))))
+
+(deftest test-stylesheet-path
+  (is (= "/stylesheets/style.css" (stylesheet-path "style")))
+  (is (= "/stylesheets/style.css" (stylesheet-path "style.css")))
+  (is (= "/stylesheets/dir/style.css" (stylesheet-path "dir/style.css")))
+  (is (= "http://www.conjureapplication.com/css/style.css" (stylesheet-path "http://www.conjureapplication.com/css/style")))
+  (is (= "http://www.conjureapplication.com/css/style.css" (stylesheet-path "http://www.conjureapplication.com/css/style.js"))))
+
+(deftest test-stylesheet-link-tag
+  (is (= 
+    "<link href=\"/stylesheets/style.css\" media=\"screen\" rel=\"stylesheet\" type=\"text/css\" />" 
+    (stylesheet-link-tag "style")))
+  (is (= 
+    "<link href=\"/stylesheets/style.css\" media=\"screen\" rel=\"stylesheet\" type=\"text/css\" />" 
+    (stylesheet-link-tag "style.css")))
+  (is (= 
+    "<link href=\"http://www.conjureapplication.com/style.css\" media=\"screen\" rel=\"stylesheet\" type=\"text/css\" />" 
+    (stylesheet-link-tag "http://www.conjureapplication.com/style.css")))
+  (is (= 
+    "<link href=\"/stylesheets/style.css\" media=\"all\" rel=\"stylesheet\" type=\"text/css\" />" 
+    (stylesheet-link-tag "style.css" { :media "all" })))
+  (is (= 
+    "<link href=\"/stylesheets/random.styles.css\" media=\"screen\" rel=\"stylesheet\" type=\"text/css\" /><link href=\"/css/stylish.css\" media=\"screen\" rel=\"stylesheet\" type=\"text/css\" />" 
+    (stylesheet-link-tag ["random.styles.css" "/css/stylish"]))))

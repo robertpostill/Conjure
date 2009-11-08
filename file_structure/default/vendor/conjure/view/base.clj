@@ -1,6 +1,7 @@
 (ns conjure.view.base
   (:use clj-html.core)
   (:require [clojure.contrib.str-utils :as str-utils]
+            environment
             [conjure.util.string-utils :as conjure-str-utils]))
 
 (defmacro
@@ -228,25 +229,23 @@ option names to option-tag option maps."}
   option-tags [option-map]
   (apply str (map option-tag (keys option-map) (vals option-map))))
   
-(defn-
-#^{ :doc "Augments the given options map with the values from record which correspond to the name and value keys." }
-  add-pair-to-options [options key-value-pair]
-  (let [option-name (first key-value-pair)
-        option-value (second key-value-pair)]
-    (assoc options (or option-name option-value) { :value option-value })))
-  
 (defn
-#^{ :doc "Creates an option map from the given list of records, using the given name key and value key." }
+#^{ :doc "Creates an option map from the seq of record in the given map. Map options include:
+
+  :records - The seq of records to use as options.
+  :name-key - The key in each record who's value will be used as the name of each option. If this key does not exist, then :name is used.
+  :value-key - The key in each record who's value will be used as the value of each option. If this key does not exist, then :id is used.
+  :blank - If true, adds a blank option (name = \"\", value = \"\"). Default is false." }
   options-from-records 
-  ([records] (options-from-records records :name :id))
-  ([records name-key] (options-from-records records name-key :id))
-  ([records name-key value-key]
-    (reduce 
-      add-pair-to-options 
-      {} 
-      (map 
-        (fn [record] [(or (get record name-key) (get record :name)) (or (get record value-key) (get record :id))]) 
-        records))))
+  ([record-map] 
+    (let [name-key (get record-map :name-key :name)
+          value-key (get record-map :value-key :id)]
+      (apply merge
+        (cons
+          (if (:blank record-map) { "" { :value "" } }) 
+          (map 
+            (fn [record] { (get record name-key) { :value (get record value-key) } }) 
+            (get record-map :records [])))))))
 
 (defn-
 #^{ :doc "Augments the given html-options with a record name option." }
@@ -279,3 +278,67 @@ contain record-key then this method returns record-key if record-key equals reco
     (select-tag
       { :html-options (record-html-options (:html-options select-options) record-name key-name)
         :option-map (option-map-select-value (:option-map select-options) (get record key-name)) })))
+
+(defn-
+#^{ :doc "Replaces the current extension on source with the given extension." }
+  replace-extension [source extension]
+  (if extension
+    (conjure-str-utils/add-ending-if-absent
+      (str-utils/re-sub #"\.[a-zA-Z0-9]*$" "" source) 
+      (if extension (str "." extension)))
+    source))
+
+(defn
+#^{ :doc "Returns a path for the given source in the given base-dir with the given extension (if none is given)." }
+  compute-public-path 
+  ([source base-dir] (compute-public-path source base-dir nil))
+  ([source base-dir extension]
+    (replace-extension
+      (if (. source startsWith "/")
+        source
+        (if (. source startsWith "http://") ; This should probably check for ftp, https, and etc.
+          source
+          (str "/" base-dir "/" source)))
+      extension)))
+
+(defn
+#^{ :doc "Returns the full path to the given image source." }
+  image-path [source]
+    (compute-public-path source environment/images-dir))
+  
+(defn
+#^{ :doc "Returns an image tag for the given source and with the given options." }
+  image-tag 
+  ([source] (image-tag source {}))
+  ([source html-options] (htmli [:img (merge { :src (image-path source) } html-options)])))
+
+(defn
+#^{ :doc "Returns the full path to the given stylesheet source." }
+  stylesheet-path [source]
+    (compute-public-path source environment/stylesheets-dir "css"))
+
+(defn-
+#^{ :doc "Returns the type of the first parameter." }
+  first-type [& params]
+  (class (first params)))
+
+(defmulti 
+#^{ :doc "Returns a stylesheet tag for the given source and with the given options." }
+  stylesheet-link-tag first-type)
+  
+(defmethod stylesheet-link-tag clojure.lang.PersistentVector
+  ([sources] (stylesheet-link-tag sources {}))
+  ([sources html-options]
+    (apply str (map stylesheet-link-tag sources (repeat html-options)))))
+  
+(defmethod stylesheet-link-tag String
+  ([source] (stylesheet-link-tag source {}))
+  ([source html-options]
+    (htmli
+      [:link 
+        (merge 
+          { :href (stylesheet-path source), 
+            :media "screen", 
+            :rel "stylesheet", 
+            :type "text/css" } 
+          html-options)])))
