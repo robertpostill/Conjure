@@ -160,3 +160,75 @@
   (is (= 
     "<link href=\"/stylesheets/random.styles.css\" media=\"screen\" rel=\"stylesheet\" type=\"text/css\" /><link href=\"/css/stylish.css\" media=\"screen\" rel=\"stylesheet\" type=\"text/css\" />" 
     (stylesheet-link-tag ["random.styles.css" "/css/stylish"]))))
+
+(deftest test-javascript-path
+  (is (= "/javascripts/xmlhr.js" (javascript-path "xmlhr")))
+  (is (= "/javascripts/dir/xmlhr.js" (javascript-path "dir/xmlhr.js")))
+  (is (= "/dir/xmlhr.js" (javascript-path "/dir/xmlhr")))
+  (is (= "http://www.conjureapplication.com/js/xmlhr.js" 
+    (javascript-path "http://www.conjureapplication.com/js/xmlhr")))
+  (is (= "http://www.conjureapplication.com/js/xmlhr.js" 
+    (javascript-path "http://www.conjureapplication.com/js/xmlhr.js"))))
+    
+(deftest test-javascript-include-tag
+  (is (= "<script src=\"/javascripts/xmlhr.js\" type=\"text/javascript\" />" (javascript-include-tag "xmlhr")))
+  (is (= "<script src=\"/javascripts/xmlhr.js\" type=\"text/javascript\" />" (javascript-include-tag "xmlhr.js")))
+  (is (= 
+    "<script src=\"/javascripts/common.js\" type=\"text/javascript\" /><script src=\"/elsewhere/cools.js\" type=\"text/javascript\" />"
+    (javascript-include-tag ["common.js", "/elsewhere/cools"])))
+  (is (= 
+    "<script src=\"http://www.conjureapplication.com/js/xmlhr.js\" type=\"text/javascript\" />"
+    (javascript-include-tag "http://www.conjureapplication.com/js/xmlhr")))
+  (is (= 
+    "<script src=\"http://www.conjureapplication.com/js/xmlhr.js\" type=\"text/javascript\" />"
+    (javascript-include-tag "http://www.conjureapplication.com/js/xmlhr.js"))))
+
+(deftest test-mail-to
+  (is (= "<a href=\"mailto:me@example.com\">me@example.com</a>" (mail-to { :address "me@example.com" })))
+  (is (= "<a href=\"mailto:me@example.com\">My email</a>" (mail-to { :address "me@example.com", :name "My email" })))
+  (is (= 
+    "<a class=\"email\" href=\"mailto:me@example.com\">My email</a>" 
+    (mail-to { :address "me@example.com", :name "My email" :html-options { :class "email" }})))
+  (is (= 
+    "<a href=\"mailto:me@example.com\">me at example.com</a>" 
+    (mail-to { :address "me@example.com", :replace-at " at " })))
+  (is (= 
+    "<a href=\"mailto:me@example.com\">me@example dot com</a>" 
+    (mail-to { :address "me@example.com", :replace-dot " dot " })))
+  (is (= 
+    "<a href=\"mailto:me@example.com\">me at example dot com</a>" 
+    (mail-to { :address "me@example.com", :replace-at " at ", :replace-dot " dot " })))
+  (is (= 
+    "<a href=\"mailto:me@example.com?cc=you%40example.com\">me@example.com</a>" 
+    (mail-to { :address "me@example.com", :cc "you@example.com" })))
+  (is (= 
+    "<a href=\"mailto:me@example.com?subject=Yo%21&cc=you%40example.com\">me@example.com</a>" 
+    (mail-to { :address "me@example.com", :cc "you@example.com", :subject "Yo!" })))
+  (is (= 
+    "<a href=\"mailto:me@example.com?body=Hey.&bcc=you%40example.com\">me@example.com</a>" 
+    (mail-to { :address "me@example.com", :bcc "you@example.com", :body "Hey." }))))
+
+(deftest test-check-box
+  (is (= 
+    "<input id=\"puppy-good\" name=\"puppy[good]\" type=\"checkbox\" value=\"1\" /><input id=\"puppy-good\" name=\"puppy[good]\" type=\"hidden\" value=\"0\" />"
+    (check-box { :good 0 } :puppy :good)))
+  (is (= 
+    "<input id=\"blah\" name=\"puppy[good]\" type=\"checkbox\" value=\"1\" /><input id=\"blah\" name=\"puppy[good]\" type=\"hidden\" value=\"0\" />"
+    (check-box { :good 0 } :puppy :good { :id "blah" })))
+  (is (= 
+    "<input id=\"puppy-good\" name=\"puppy[good]\" type=\"checkbox\" value=\"true\" /><input id=\"puppy-good\" name=\"puppy[good]\" type=\"hidden\" value=\"0\" />"
+    (check-box { :good 0 } :puppy :good {} true)))
+  (is (= 
+    "<input id=\"puppy-good\" name=\"puppy[good]\" type=\"checkbox\" value=\"true\" /><input id=\"puppy-good\" name=\"puppy[good]\" type=\"hidden\" value=\"false\" />"
+    (check-box { :good 0 } :puppy :good {} true false))))
+
+(deftest test-radio-button
+  (is (= 
+    "<input id=\"puppy-breed\" name=\"puppy[breed]\" type=\"radio\" value=\"great-dane\" />" 
+    (radio-button { :breed "chihuahua" } :puppy :breed "great-dane")))
+  (is (= 
+    "<input checked=\"checked\" id=\"puppy-breed\" name=\"puppy[breed]\" type=\"radio\" value=\"chihuahua\" />" 
+    (radio-button { :breed "chihuahua" } :puppy :breed "chihuahua")))
+  (is (= 
+    "<input id=\"dog-breed\" name=\"puppy[breed]\" type=\"radio\" value=\"great-dane\" />" 
+    (radio-button { :breed "chihuahua" } :puppy :breed "great-dane" { :id "dog-breed" }))))
