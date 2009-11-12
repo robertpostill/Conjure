@@ -2,7 +2,8 @@
   (:use clj-html.core)
   (:require [clojure.contrib.str-utils :as str-utils]
             environment
-            [conjure.util.string-utils :as conjure-str-utils]))
+            [conjure.util.string-utils :as conjure-str-utils]
+            [conjure.util.html-utils :as html-utils]))
 
 (defmacro
 #^{:doc "Defines a view. This macro should be used in a view file to define the parameters used in the view."}
@@ -172,12 +173,12 @@ an optional option map for the html options." }
           key-name-str (conjure-str-utils/str-keyword key-name)]
       (htmli 
         [:input 
-          (merge 
-            html-options
+          (merge
             { :type (conjure-str-utils/str-keyword input-type),
               :id (id-value record-name-str key-name-str), 
               :name (name-value record-name-str key-name-str)
-              :value (get record key-name) })])))
+              :value (get record key-name) } 
+            html-options)])))
 
 (defn
 #^{:doc "Creates an input tag of type text for a field of name key-name in record of the given name. You can pass along
@@ -342,3 +343,74 @@ contain record-key then this method returns record-key if record-key equals reco
             :rel "stylesheet", 
             :type "text/css" } 
           html-options)])))
+
+(defn
+#^{ :doc "Returns the full path to the given javascript source." }
+  javascript-path [source]
+    (compute-public-path source environment/javascripts-dir "js"))
+
+(defmulti
+#^{ :doc "Returns a javascript include tag for the given source and with the given options." }
+  javascript-include-tag first-type)
+
+(defmethod javascript-include-tag clojure.lang.PersistentVector
+  ([sources] (javascript-include-tag sources {}))
+  ([sources html-options]
+    (apply str (map javascript-include-tag sources (repeat html-options)))))
+
+(defmethod javascript-include-tag String
+  ([source] (javascript-include-tag source {}))
+  ([source html-options]
+    (htmli
+      [:script
+        (merge 
+          { :src (javascript-path source),
+            :type "text/javascript" } 
+          html-options)])))
+
+(defn
+#^{ :doc "Returns a mailto link with the given mail options. Valid mail options are:
+
+  :address - The full e-mail address to use. (required)
+  :name - The display name to use. If not given, address is used.
+  :html-options - Any extra attributes for the mail to tag.
+  :replace-at - If name is not given, then replace the @ symbol with this text in the address before using it as the name.
+  :replace-dot - If name is not given, then replace the . in the email with this text in the address before using it as the name.
+  :subject - Presets the subject line of the e-mail.
+  :body - Presets the body of the email.
+  :cc - Carbon Copy. Adds additional recipients to the email.
+  :bcc - Blind Carbon Copy. Adds additional hidden recipients to the email." }
+  mail-to [mail-options] 
+   (let [address (:address mail-options)
+         display-name 
+          (or 
+            (:name mail-options) 
+            (conjure-str-utils/str-replace-if address { "@" (:replace-at mail-options), "." (:replace-dot mail-options) }))
+         mailto-params (html-utils/url-param-str (select-keys mail-options [:cc :bcc :subject :body]))]
+     (htmli
+       [:a
+         (merge
+           { :href (str "mailto:" address mailto-params) }
+           (:html-options mail-options))
+         display-name])))
+         
+(defn
+#^{ :doc "Returns a check box tag from the given record, record name, and key for the record. Note: browsers will send 
+nothing if a check box is not checked, therefore this function also creates a hidden field with the unchecked value." }
+  check-box 
+  ([record record-name key-name] (check-box record record-name key-name {}))
+  ([record record-name key-name html-options] (check-box record record-name key-name html-options 1))
+  ([record record-name key-name html-options checked-value] 
+    (check-box record record-name key-name html-options checked-value 0))
+  ([record record-name key-name html-options checked-value unchecked-value]
+    (str 
+      (input :checkbox record record-name key-name (merge html-options { :value (str checked-value) }))
+      (hidden-field record record-name key-name (merge html-options { :value (str unchecked-value) })))))
+
+(defn
+#^{ :doc "Returns a radio button tag for the given record, record name and key for the record." }
+  radio-button 
+  ([record record-name key-name value] (radio-button record record-name key-name value {}))
+  ([record record-name key-name value html-options]
+    (input :radio record record-name key-name 
+      (merge html-options { :value (str value), :checked (if (= (get record key-name) value) "checked") }))))
