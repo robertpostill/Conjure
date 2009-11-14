@@ -28,6 +28,9 @@ MIT License duelinmarkers
 
  clj-record.jar
 
+MIT License
+ jopt-simple-3.1.jar
+
 
 Eclipse Public License
 
