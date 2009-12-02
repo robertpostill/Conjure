@@ -17,10 +17,12 @@ then this method simply returns it."}
         
 (defn
 #^{:doc "Converts a keyword to it's string value. Basically, it just removes the ':' from the beginning."}
-  str-keyword [keyword]
-  (if (keyword? keyword)
-    (. (str keyword) substring 1)
-    (str keyword)))
+  str-keyword [incoming-keyword]
+  (if (nil? incoming-keyword)
+    nil
+    (if (keyword? incoming-keyword)
+      (. (str incoming-keyword) substring 1)
+      (str incoming-keyword))))
     
 (defn
 #^{:doc "If string ends with the string ending, then remove ending and return the result. Otherwise, return string."}
@@ -58,3 +60,11 @@ then this method simply returns it."}
   str-replace-if 
   ([string replace-map]
     (reduce str-replace-pair string replace-map)))
+
+(defn
+#^{ :doc "Replaces any underscores or dashes in the given string to spaces. If string is a keyword, it is converted to a
+string before the spaces are added." }
+  human-readable [string]
+    (if string
+      (str-utils/re-gsub #"[_-]" " " (str-keyword string))
+      string))
