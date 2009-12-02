@@ -15,50 +15,67 @@
 (defn
 #^{:doc "Returns the content for the up function of the create migration for the given model."}
   create-migration-up-content [model]
-  (str "(database/create-table \"" (util/model-to-table-name model) "\" 
-    (database/id))"))
+  (str "(create-table \"" (util/model-to-table-name model) "\" 
+    (id))"))
     
 (defn
 #^{:doc "Returns the content for the down function of the create migration for the given model."}
   create-migration-down-content [model]
-  (str "(database/drop-table \"" (util/model-to-table-name model) "\")"))
+  (str "(drop-table \"" (util/model-to-table-name model) "\")"))
   
 (defn
-#^{:doc "Generates the migration file for the model."}
-  generate-migration-file [model]
-  (migration-generator/generate-migration-file 
-    (util/migration-for-model model) 
-    (create-migration-up-content model) 
-    (create-migration-down-content model)))
+#^{ :doc "Generates the migration file for the model." }
+  generate-migration-file 
+  ([model] (generate-migration-file model (create-migration-up-content model) (create-migration-down-content model)))
+  ([model up-content down-content]
+    (migration-generator/generate-migration-file 
+      (util/migration-for-model model) 
+      up-content 
+      down-content)))
+
+(defn
+#^{ :doc "Creates the model file on disk" }
+  model-file-content 
+  ([model] (model-file-content model ""))
+  ([model extra-content]
+    (let [model-namespace (util/model-namespace model)]
+      (str "(ns " model-namespace "
+  (:use conjure.model.base
+        clj-record.boot))
+
+(clj-record.core/init-model)
+
+" extra-content))))
+
+(defn
+#^{ :doc "Creates the model file on disk" }
+  create-model-file 
+  ([model] (create-model-file model (builder/create-model-file (util/find-models-directory) model)))
+  ([model model-file] (create-model-file model model-file (model-file-content model)))
+  ([model model-file model-content]
+    (file-utils/write-file-content model-file model-content)))
 
 (defn
 #^{:doc "Generates the model content and saves it into the given model file."}
   generate-file-content [model-file]
-      (let [model (util/model-from-file model-file)
-            model-namespace (util/model-namespace model)
-            model-content (str "(ns " model-namespace "
-  (:use conjure.model.base
-        clj-record.boot))
-
-(clj-record.core/init-model)")]
-        (file-utils/write-file-content model-file model-content)
+      (let [model (util/model-from-file model-file)]
+        (create-model-file model)
         (generate-migration-file model)
         (model-test-generator/generate-unit-test model)))
 
 (defn
 #^{:doc "Creates the model file associated with the given model."}
-  generate-model-file
-    ([model]
-      (if model
-        (let [models-directory (util/find-models-directory)]
-          (if models-directory
-            (let [model-file (builder/create-model-file models-directory model)]
-              (if model-file
-                (generate-file-content model-file)))
-            (do
-              (println "Could not find models directory.")
-              (println models-directory))))
-        (model-usage))))
+  generate-model-file [model]
+    (if model
+      (let [models-directory (util/find-models-directory)]
+        (if models-directory
+          (let [model-file (builder/create-model-file models-directory model)]
+            (if model-file
+              (generate-file-content model-file)))
+          (do
+            (println "Could not find models directory.")
+            (println models-directory))))
+      (model-usage)))
         
 (defn 
 #^{:doc "Generates a model file for the model name in params."}
