@@ -54,7 +54,14 @@ For example: if fields is [\"name:string\" \"count:integer\"] this method would 
     (id)"
     (fields-spec-string fields)
     ")"))
-    
+
+(defn
+#^{ :doc "Returns the content for add in the action map." }
+  create-index-action []
+    { :controller (str "(defn index [request-map]
+  (redirect-to request-map { :action \"list-records\" }))")
+      :view nil })
+      
 (defn
 #^{ :doc "Returns the content for list in the action map." }
   create-list-records-action [model]
@@ -140,7 +147,8 @@ For example: if fields is [\"name:string\" \"count:integer\"] this method would 
 (defn
 #^{ :doc "Returns a map which links action names to content and such." }
   create-action-map [model]
-    { :list-records (create-list-records-action model)
+    { :index (create-index-action)
+      :list-records (create-list-records-action model)
       :show (create-show-action model)
       :add (create-add-action model)
       :create (create-create-action model)
@@ -179,9 +187,9 @@ For example: if fields is [\"name:string\" \"count:integer\"] this method would 
       (fn [action-name] 
         (if (get (get action-map action-name) :view)
           (view-generator/generate-view-file 
-            controller-name 
-            action-name 
-            (create-view-content controller-name action-name action-map))))
+            { :controller controller-name, 
+              :action action-name, 
+              :content (create-view-content controller-name action-name action-map) })))
       (keys action-map))))
 
 (defn
@@ -209,7 +217,8 @@ For example: if fields is [\"name:string\" \"count:integer\"] this method would 
           (model-test-generator/generate-unit-test model)
           (let [action-map (create-action-map model)
                 actions (map conjure-str-utils/str-keyword (keys action-map))]
-            (controller-generator/create-controller-files model (create-controller-content model action-map) actions)
+            (controller-generator/create-controller-files 
+              { :controller model, :controller-content (create-controller-content model action-map), :actions actions })
             (generate-views model action-map)))
         (scaffold-usage))))
         

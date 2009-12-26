@@ -2,6 +2,7 @@
   (:use clj-html.core)
   (:require [clj-html.helpers :as helpers]
             [clojure.contrib.str-utils :as str-utils]
+            [conjure.model.util :as model-util]
             [conjure.util.string-utils :as conjure-str-utils]
             [conjure.util.html-utils :as html-utils]
             [conjure.view.util :as view-utils]
@@ -158,7 +159,7 @@ containing a name, value (optional), and selected (optional) keys."}
   option-tag
   ([option-name value-name selected] 
     (htmli [:option (merge {:value value-name} 
-      (if selected {:selected "true"} {})) option-name]))
+      (if selected {:selected "true"} {})) (if (and option-name (> (. option-name length) 0)) option-name "&lt;blank&gt;")]))
   ([option-name option-map]
     (let [option-name-str (conjure-str-utils/str-keyword option-name)]
       (option-tag option-name-str (or (:value option-map) option-name-str) (or (:selected option-map) false)))))
@@ -184,8 +185,24 @@ option names to option-tag option maps."}
         (cons
           (if (:blank record-map) { "" { :value "" } }) 
           (map 
-            (fn [record] { (get record name-key) { :value (helpers/h (get record value-key)) } }) 
+            (fn [record] { (or (get record name-key) (get record value-key)) { :value (helpers/h (get record value-key)) } }) 
             (get record-map :records [])))))))
+
+(defn
+#^{ :doc "Creates an option map from the model in the given map. Options include:
+
+  :model - The name of the model to pull the records from.
+  :name-key - The key in each record who's value will be used as the name of each option. If this key does not exist, then :name is used.
+  :value-key - The key in each record who's value will be used as the value of each option. If this key does not exist, then :id is used.
+  :blank - If true, adds a blank option (name = \"\", value = \"\"). Default is false." }
+  options-from-model [option-map]
+  (let [model (:model option-map)
+        model-namespace (model-util/model-namespace model)
+        model-namespace-symbol (symbol model-namespace)
+        find-records-str (str "(" model-namespace "/find-records [true])")]
+    (do
+      (require model-namespace-symbol)
+      (options-from-records (assoc option-map :records (eval (read-string find-records-str)))))))
 
 (defn-
 #^{ :doc "Augments the given html-options with a record name option." }
@@ -366,3 +383,46 @@ nothing if a check box is not checked, therefore this function also creates a hi
   ([record record-name key-name value html-options]
     (input :radio record record-name key-name 
       (merge html-options { :value (str value), :checked (if (= (get record key-name) value) "checked") }))))
+
+(defn
+#^{ :doc "Returns an xml header tag with the given html-options. If no html-options are given, then the tag is created 
+with the following defaults:
+
+  version=\"1.0\"" }
+  xml-header-tag 
+  ([] (xml-header-tag {}))
+  ([html-options]
+    (str 
+      "<?xml " 
+      (html-utils/attribute-list-str (merge { :version "1.0" } html-options ))
+      "?>")))
+
+(defn
+#^{ :doc "Returns the html doc type tag. You can pass a type into this method for a specific type. Valid types are:
+
+  :html4.01-strict
+  :html4.01-transitional
+  :html4.01-frameset
+  :xhtml1.0-strict
+  :xhtml1.0-transitional - default
+  :xhtml1.0-frameset
+  :xhtml1.1" }
+  html-doctype
+  ([] (html-doctype :xhtml1.0-transitional)) 
+  ([doc-type]
+    (cond
+      (= doc-type :html4.01-strict) 
+        "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01//EN\" \"http://www.w3.org/TR/html4/strict.dtd\">"
+      (= doc-type :html4.01-transitional) 
+        "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01 Transitional//EN\" \"http://www.w3.org/TR/html4/loose.dtd\">"
+      (= doc-type :html4.01-frameset) 
+        "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01 Frameset//EN\" \"http://www.w3.org/TR/html4/frameset.dtd\">"
+      (= doc-type :xhtml1.0-strict) 
+        "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Strict//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd\">"
+      (= doc-type :xhtml1.0-transitional) 
+        "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Transitional//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd\">"
+      (= doc-type :xhtml1.0-frameset) 
+        "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Frameset//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-frameset.dtd\">"
+      (= doc-type :xhtml1.1) 
+        "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.1//EN\" \"http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd\">"
+      true (throw (RuntimeException. (str "Unknown doc type: " doc-type))))))
