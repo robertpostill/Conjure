@@ -29,6 +29,9 @@ MIT License mmcgrana
 MIT License duelinmarkers
 
  clj-record.jar
+ 
+MIT License
+ jopt-simple-3.1.jar
 
 
 Eclipse Public License
@@ -36,3 +39,4 @@ Eclipse Public License
  clojure-1.0.0.jar
  clojure-contrib.jar
  h2-1.1.114.jar
+ scriptjure.jar

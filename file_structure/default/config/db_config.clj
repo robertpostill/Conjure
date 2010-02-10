@@ -18,10 +18,10 @@
               :flavor (h2/flavor)
           
               ;; The user name to use when connecting to the database.
-              :username "sa"
+              :username "conjure"
             
               ;; The password to use when connecting to the database.
-              :password "" }]
+              :password "conjure" }]
 
       (cond
         (= environment :production)
@@ -31,12 +31,12 @@
             
         (= environment :development)
           (merge base-config { 
-            ;; The name of the production database to use.
+            ;; The name of the development database to use.
             :dbname "conjure_development" })
             
         (= environment :test)
           (merge base-config { 
-            ;; The name of the production database to use.
+            ;; The name of the test database to use.
             :dbname "conjure_test" })))))
             
 (defn

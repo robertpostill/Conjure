@@ -1,8 +1,12 @@
 (ns conjure.view.util
-  (:require [clojure.contrib.seq-utils :as seq-utils]
-            [conjure.util.file-utils :as file-utils]
+  (:require [conjure.util.file-utils :as file-utils]
+            [conjure.util.html-utils :as html-utils]
             [conjure.util.loading-utils :as loading-utils]
-            [conjure.util.string-utils :as conjure-str-utils]))
+            [conjure.util.session-utils :as session-utils]
+            [conjure.util.string-utils :as conjure-str-utils]
+            [clojure.contrib.logging :as logging]
+            [clojure.contrib.seq-utils :as seq-utils]
+            session-config))
 
 (defn 
 #^{:doc "Finds the views directory which contains all of the files which describe the html pages of the app."}
@@ -47,32 +51,45 @@
         :action action })))
 
 (defn
-#^{:doc "Returns the view namespace for the given view file."}
+#^{ :doc "Returns the view namespace for the given view file." }
   view-namespace [controller view-file]
   (if (and controller view-file)
     (view-namespace-by-action controller (loading-utils/clj-file-to-symbol-string (. view-file getName)))))
 
 (defn
-#^{:doc "Returns the rendered view from the given request-map."}
+#^{ :doc "Returns the rendered view from the given request-map." }
   render-view [request-map & params]
   (load-view request-map)
-  (apply
-    (eval (read-string (str (request-view-namespace request-map) "/render-view")))
-    request-map params))
+  (let [view-namespace (request-view-namespace request-map)]
+    (logging/debug (str "Rendering view: " view-namespace))
+    (apply
+      (eval (read-string (str view-namespace "/render-view")))
+      request-map params)))
+
+(defn-
+#^{ :doc "Creates a new request-map for use when rendering a layout. The new map is similar to the given request-map 
+except the controller is \"layouts\", the action is layout-name, and layout-info contains the controller and action from
+the given request-map." }
+  merge-layout-request-map [request-map layout-name]
+  (merge request-map 
+    { :controller "layouts", 
+      :action layout-name 
+      :layout-info 
+        (merge
+          (:layout-info request-map) 
+          (select-keys request-map [:controller :action :params])) }))
 
 (defn
 #^{:doc "Returns the rendered layout for the given layout name."}
   render-layout [layout-name request-map body]
-  (render-view 
-    (merge 
-      request-map 
-      { :controller "layouts", 
-        :action (or layout-name "application") 
-        :layout-info 
-          (merge
-            (:layout-info request-map) 
-            { :controller (:controller request-map)
-              :action (:action request-map) }) }) 
+  (if layout-name
+    (let [body-is-map? (map? body)
+          layout-body (if body-is-map? (:body body) body)
+          layout-request-map (merge-layout-request-map request-map layout-name)
+          full-body (render-view layout-request-map layout-body)]
+      (if body-is-map?
+        (assoc body :body full-body)
+        full-body))
     body))
 
 (defn
@@ -104,18 +121,22 @@ value of :id in the map. This method is used by url-for to get the id from from 
       id)))
       
 (defn-
-#^{:doc "Returns the value of :anchor from the given parameters and adds a '#' before it. If the key :anchor does not 
+#^{ :doc "Returns the value of :anchor from the given parameters and adds a '#' before it. If the key :anchor does not 
 exist in params, then this method returns nil This method is used by url-for to get the id from from the params passed 
-to it."}
+to it." }
   anchor-from [params]
   (let [anchor (:anchor params)]
     (if anchor
       (str "#" anchor))))
 
 (defn
-#^{:doc "Returns the params merged with the request-map. Only including the keys from request-map used by url-for"}
+#^{ :doc "Returns the params merged with the request-map. Only including the keys from request-map used by url-for" }
   merge-url-for-params [request-map params]
-  (merge (select-keys request-map [:controller :action :scheme :request-method :server-name :server-port ]) params))
+    (merge 
+      (select-keys 
+        request-map 
+        [:controller :action :scheme :request-method :server-name :server-port])
+      params))
 
 (defn
 #^{:doc 
@@ -134,12 +155,21 @@ to it."}
   ([request-map params] (url-for (merge-url-for-params request-map params))) 
   ([params]
   (let [controller (conjure-str-utils/str-keyword (:controller params))
-        action (conjure-str-utils/str-keyword (:action params))]
+        action (conjure-str-utils/str-keyword (:action params))
+        url-params (or (:params params) {})
+        session-id (session-utils/session-id params)]
     (if (and controller action)
       (apply str 
-        (full-host params) 
-        (interleave 
-          (repeat "/") 
-          (filter #(not (nil? %))
-            [(loading-utils/dashes-to-underscores controller) (loading-utils/dashes-to-underscores action) (id-from params) (anchor-from params)])))
+        (seq-utils/flatten
+          [ (full-host params) 
+            (interleave 
+              (repeat "/") 
+              (filter #(not (nil? %))
+                [(loading-utils/dashes-to-underscores controller) (loading-utils/dashes-to-underscores action) (id-from params) (anchor-from params)]))
+            (let [new-session-id 
+                    (or session-id (if (not session-config/use-session-cookie) (session-utils/create-session-id)))
+                  new-url-params 
+                    (if new-session-id (assoc url-params :session-id new-session-id) url-params)]
+              (if (seq new-url-params)
+                (html-utils/url-param-str new-url-params)))]))
       (throw (new RuntimeException (str "You must pass a controller and action to url-for. " params)))))))

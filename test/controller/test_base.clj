@@ -1,9 +1,11 @@
 (ns test.controller.test-base
   (:use clojure.contrib.test-is
         conjure.controller.base)
-  (:require [generators.controller-generator :as controller-generator]
+  (:require [conjure.model.database :as database]
+            [conjure.util.session-utils :as session-utils]
             [destroyers.controller-destroyer :as controller-destroyer]
-            [destroyers.view-destroyer :as view-destroyer]))
+            [destroyers.view-destroyer :as view-destroyer]
+            [generators.controller-generator :as controller-generator]))
 
 (def controller-name "test")
 (def action-name "show")

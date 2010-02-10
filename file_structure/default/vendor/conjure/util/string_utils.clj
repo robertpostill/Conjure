@@ -58,7 +58,7 @@ then this method simply returns it."}
     nil))
 
 (defn
-#^{ :doc "For each key in replace-map, substitute the value in replace map for all occurances of the key in string." }
+#^{ :doc "For each key in replace-map, substitute the value in replace map for all occurrences of the key in string." }
   str-replace-if 
   ([string replace-map]
     (reduce str-replace-pair string replace-map)))
@@ -82,3 +82,65 @@ string before the spaces are added." }
         (.toString (new BigInteger 1 (.digest alg)) 16))
       (catch NoSuchAlgorithmException e
         (throw (new RuntimeException e))))))
+
+(defn
+#^{ :doc "Converts the given string to a map using separator to separate the key value pairs, and equals-separator to 
+separate the key from the value." }
+  str-to-map 
+  ([string] (str-to-map string #";"))
+  ([string separator] (str-to-map string separator #"="))
+  ([string separator equals-separator]
+    (if (and string separator equals-separator)
+      (reduce 
+        (fn [new-map pair] (assoc new-map (first pair) (second pair)))
+        {}
+        (map 
+          #(filter 
+            (fn [equals-seq] (not (re-matches equals-separator equals-seq))) 
+            (str-utils/re-partition equals-separator %))
+          (filter 
+            (fn [equals-pair] (not (re-matches separator equals-pair))) 
+            (str-utils/re-partition separator string))))
+      nil)))
+
+(defn
+#^{ :doc "Java escapes the given string." }
+  escape-str [string]
+  (apply str
+    (map 
+      (fn [character] (or (char-escape-string character) character))
+      string)))
+
+(defn
+#^{ :doc "Converts the given form into a string which can later be parsed using read-string." }
+  form-str [form]
+  (cond
+    (char? form) (str "(char " (int form) ")")
+    (float? form) (str form)
+    (integer? form) (str form)
+    (keyword? form) (str form)
+    (list? form) (str "(list " (str-utils/str-join " " (map form-str form)) ")")
+    (map? form) (str "{ " (str-utils/str-join ", " (map (fn [pair] (str (form-str (first pair)) " " (form-str (second pair)))) form)) " }")
+    (set? form) (str "#{" (str-utils/str-join " " (map form-str form)) "}") 
+    (string? form) (str "\"" (escape-str form) "\"")
+    (symbol? form) (str "(symbol \"" form "\")")
+    (vector? form) (str "[" (str-utils/str-join " " (map form-str form)) "]")))
+    
+(defn
+#^{ :doc "If the given word starts with a lower case letter, then this function capitalizes the first letter. 
+Otherwise, this method simply returns the given word." }
+  title-case-word [word]
+  (if (and word (> (.length word) 0) (re-matches #"^[a-z].*" word))
+    (apply str (. Character toUpperCase (first word)) (rest word))
+    word))
+    
+(defn
+#^{ :doc "Converts the given string to title case by capitalizing each word in the string." }
+  title-case [string]
+  (if string
+    (apply str (map title-case-word (str-utils/re-partition #"\s+" string)))))
+
+(defn
+#^{ :doc "Converts the given string human readable format then title cases the result." }
+  human-title-case [string]
+  (title-case (human-readable string)))

@@ -77,7 +77,9 @@ For example: if fields is [\"name:string\" \"count:integer\"] this method would 
   create-show-action [model]
     { :controller (str "(defn show [request-map]
   (let [id (:id (:params request-map))]
-    (render-view request-map \"" model "\" (" model "/table-metadata) (" model "/get-record (or id 1)))))")
+    (if id
+      (render-view request-map \"" model "\" (" model "/table-metadata) (" model "/get-record id))
+      (redirect-to request-map { :action \"list-records\", :params {} }))))")
       :view 
         { :params "model-name table-metadata record", 
           :content "(show/render-view request-map model-name table-metadata record)" 
@@ -100,7 +102,7 @@ For example: if fields is [\"name:string\" \"count:integer\"] this method would 
   (let [record (:record (:params request-map))]
     (if record
       (" model "/insert record))
-    (redirect-to request-map { :action \"list-records\" })))")
+    (redirect-to (select-keys request-map [:controller] ) { :action \"list-records\" })))")
       :view nil })
   
 (defn
@@ -108,7 +110,9 @@ For example: if fields is [\"name:string\" \"count:integer\"] this method would 
   create-edit-action [model]
     { :controller (str "(defn edit [request-map]
   (let [id (:id (:params request-map))]
-    (render-view request-map (" model "/table-metadata) (" model "/get-record (or id 1)))))")
+    (if id
+      (render-view request-map (" model "/table-metadata) (" model "/get-record id))
+      (redirect-to request-map { :action \"list-records\", :params {} }))))")
       :view 
         { :params "table-metadata record", 
           :content "(edit/render-view request-map table-metadata record)"
@@ -143,6 +147,91 @@ For example: if fields is [\"name:string\" \"count:integer\"] this method would 
       (if delete-id (" model "/destroy-record { :id delete-id }))
       (redirect-to request-map { :action \"list-records\" }))))")
       :view nil })
+
+(defn
+#^{ :doc "Returns the content for the ajax delete in the action map." }
+  create-ajax-delete [model]
+  { :controller (str "(defn ajax-delete [request-map]
+  (let [delete-id (:id (:params request-map))]
+    (do
+      (if delete-id (" model "/destroy-record { :id delete-id }))
+      (render-view { :layout nil } request-map))))")
+      :view { :content "(empty/render-view request-map)"
+              :requires "[views.templates.empty :as empty]" } })
+
+(defn
+#^{ :doc "Returns the content for the ajax add in the action map." }
+  create-ajax-add [model]
+  { :controller (str "(defn ajax-add [request-map]
+  (let [record (:record (:params request-map))]
+    (if record
+      (do
+        (" model "/insert record)
+        (let [created-record ("model"/find-record record)]
+          (render-view { :layout nil } request-map (" model "/table-metadata) created-record))))))")
+      :view { :params "table-metadata record"
+              :content "(record-row/render-view request-map table-metadata record)"
+              :requires "[views.templates.record-row :as record-row]" } })
+    
+(defn
+#^{ :doc "Returns the content for the ajax show in the action map." }
+  create-ajax-show [model]
+  { :controller (str "(defn ajax-show [request-map]
+  (let [id (:id (:params request-map))]
+    (if id
+      (render-view { :layout nil } request-map \"" model "\"
+        (" model "/table-metadata) 
+        (" model "/get-record id)))))")
+      :view 
+        { :params "model-name table-metadata record",
+          :content "(ajax-show/render-view request-map 
+    model-name table-metadata record (inc (count table-metadata)))" 
+          :requires "[views.templates.ajax-show :as ajax-show]" } })
+          
+(defn
+#^{ :doc "Returns the content for the ajax row in the action map." }
+  create-ajax-row [model]
+  { :controller (str "(defn ajax-row [request-map]
+  (let [id (:id (:params request-map))]
+    (if id
+      (render-view { :layout nil } request-map
+        (" model "/table-metadata)
+        (" model "/get-record id)))))")
+      :view 
+        { :params "table-metadata record",
+          :content "(record-row/render-view request-map table-metadata record)" 
+          :requires "[views.templates.record-row :as record-row]" } })
+
+(defn
+#^{ :doc "Returns the content for the ajax show in the action map." }
+  create-ajax-edit [model]
+  { :controller (str "(defn ajax-edit [request-map]
+  (let [id (:id (:params request-map))]
+    (if id
+      (render-view { :layout nil } request-map \"" model "\"
+        (" model "/table-metadata) 
+        (" model "/get-record id)))))")
+      :view 
+        { :params "model-name table-metadata record",
+          :content "(ajax-edit/render-view request-map 
+    model-name table-metadata record (inc (count table-metadata)))" 
+          :requires "[views.templates.ajax-edit :as ajax-edit]" } })
+    
+(defn
+#^{ :doc "Returns the content for the ajax row in the action map." }
+  create-ajax-save [model]
+  { :controller (str "(defn ajax-save [request-map]
+  (let [record (:record (:params request-map))]
+    (if record
+      (do
+        (" model "/update record)
+        (render-view { :layout nil } request-map
+          (" model "/table-metadata)
+          record)))))")
+      :view 
+        { :params "table-metadata record",
+          :content "(record-row/render-view request-map table-metadata record)" 
+          :requires "[views.templates.record-row :as record-row]" } })
     
 (defn
 #^{ :doc "Returns a map which links action names to content and such." }
@@ -155,7 +244,13 @@ For example: if fields is [\"name:string\" \"count:integer\"] this method would 
       :edit (create-edit-action model)
       :save (create-save-action model)
       :delete-warning (create-delete-warning-action model)
-      :delete (create-delete-action model) })
+      :delete (create-delete-action model)
+      :ajax-delete (create-ajax-delete model)
+      :ajax-add (create-ajax-add model)
+      :ajax-show (create-ajax-show model)
+      :ajax-row (create-ajax-row model)
+      :ajax-edit (create-ajax-edit model)
+      :ajax-save (create-ajax-save model) })
     
 (defn
 #^{ :doc "Returns the content for the scaffold controller." }

@@ -1,6 +1,8 @@
 (ns test.view.test-base
-  (:use clojure.contrib.test-is
-        conjure.view.base))
+  (:use clj-html.core
+        clojure.contrib.test-is
+        conjure.view.base)
+  (require [com.reasonr.scriptjure :as scriptjure]))
 
 (defview [message]
   message)
@@ -9,64 +11,131 @@
   (is (= "test" (render-view {} "test"))))
 
 (deftest test-link-to
-  (is (= "<a href=\"/hello/show\">view</a>" (link-to "view" { :controller "hello" :action "show" })))
-  (is (= "<a href=\"/hello/show\">view</a>" (link-to "view" { :controller "hello" :action "add" } { :action "show" })))
-  (is (= "<a class=\"bar\" href=\"/hello/show\" id=\"foo\">view</a>" (link-to "view" { :controller "hello" :action "show" :html-options { :id "foo" :class "bar" } })))
-  (is (= "<a href=\"/hello/show\">show</a>" (link-to #(:action %) { :controller "hello" :action "show" }))))
+  (is (= 
+    (htmli [:a { :href "/hello/show" } "view"])
+    (link-to "view" { :controller "hello" :action "show" })))
+  (is (= 
+    (htmli [:a { :href "/hello/show" } "view"])
+    (link-to "view" { :controller "hello" :action "add" } { :action "show" })))
+  (is (= 
+    (htmli [:a { :href "/hello/show", :class "bar", :id "foo" } "view"])
+    (link-to "view" { :controller "hello" :action "show" :html-options { :id "foo" :class "bar" } })))
+  (is (= 
+    (htmli [:a { :href "/hello/show" } "show"])
+    (link-to #(:action %) { :controller "hello" :action "show" }))))
 
 (deftest test-link-to-if
-  (is (= "<a href=\"/hello/show\">view</a>" (link-to-if true "view" { :controller "hello" :action "show" })))
+  (is (= 
+    (htmli [:a { :href "/hello/show" } "view"])
+    (link-to-if true "view" { :controller "hello" :action "show" })))
   (is (= "view" (link-to-if false "view" { :controller "hello" :action "show" })))
   (is (= "show" (link-to-if false #(:action %) { :controller "hello" :action "show" })))
-  (is (= "<a href=\"/hello/show\">view</a>" (link-to-if #(= (:action %) "show") "view" { :controller "hello" :action "show" })))
+  (is (= 
+    (htmli [:a { :href "/hello/show" } "view"])
+    (link-to-if #(= (:action %) "show") "view" { :controller "hello" :action "show" })))
   (is (= "view" (link-to-if #(= (:action %) "add") "view" { :controller "hello" :action "show" }))))
   
 (deftest test-link-to-unless
   (is (= "view" (link-to-unless true "view" { :controller "hello" :action "show" })))
-  (is (= "<a href=\"/hello/show\">view</a>" (link-to-unless false "view" { :controller "hello" :action "show" })))
+  (is (= 
+    (htmli [:a { :href "/hello/show" } "view"])
+    (link-to-unless false "view" { :controller "hello" :action "show" })))
   (is (= "show" (link-to-unless true #(:action %) { :controller "hello" :action "show" })))
   (is (= "view" (link-to-unless #(= (:action %) "show") "view" { :controller "hello" :action "show" })))
-  (is (= "<a href=\"/hello/show\">view</a>" (link-to-unless #(= (:action %) "add") "view" { :controller "hello" :action "show" }))))
+  (is (= 
+    (htmli [:a { :href "/hello/show" } "view"])
+    (link-to-unless #(= (:action %) "add") "view" { :controller "hello" :action "show" }))))
 
 (deftest test-form-for
-  (is (= "<form action=\"/hello/create\" method=\"post\" name=\"create\">Blah</form>" (form-for { :name "create", :url { :controller "hello", :action "create" } } "Blah")))
-  (is (= "<form action=\"/hello/create\" method=\"post\" name=\"hello\">Blah</form>" (form-for { :url { :controller "hello", :action "create" } } "Blah")))
-  (is (= "<form action=\"/hello/create\" method=\"post\" name=\"create\">create</form>" (form-for { :name "create", :url { :controller "hello", :action "create" } } #(:action %)))))
+  (is (= 
+    (htmli [:form { :action "/hello/create", :method "post", :name "create" } "Blah"])
+    (form-for { :name "create", :url { :controller "hello", :action "create" } } "Blah")))
+  (is (= 
+    (htmli [:form { :action "/hello/create", :method "post", :name "hello" } "Blah"])
+    (form-for { :url { :controller "hello", :action "create" } } "Blah")))
+  (is (= 
+    (htmli [:form { :action "/hello/create", :method "post", :name "create" } "create"])
+    (form-for { :name "create", :url { :controller "hello", :action "create" } } #(:action %)))))
 
 (deftest test-text-field
-  (is (= "<input id=\"message-text\" name=\"message[text]\" type=\"text\" value=\"Blah\" />" (text-field { :text "Blah" } :message :text )))
-  (is (= "<input id=\"message-text\" name=\"message[text]\" size=\"20\" type=\"text\" value=\"Blah\" />" (text-field { :text "Blah" } :message :text { :size 20 } ))))
+  (is (= 
+    (htmli [:input { :id "message-text", :name "message[text]", :type "text", :value "Blah" }])
+    (text-field { :text "Blah" } :message :text )))
+  (is (= 
+    (htmli [:input { :id "message-text", :name "message[text]", :size 20, :type "text", :value "Blah" }])
+    (text-field { :text "Blah" } :message :text { :size 20 } ))))
   
 (deftest test-text-area
-  (is (= "<textarea cols=\"20\" id=\"message-text\" name=\"message[text]\" rows=\"40\">Blah</textarea>" (text-area { :text "Blah" } :message :text )))
-  (is (= "<textarea cols=\"40\" id=\"message-text\" name=\"message[text]\" rows=\"60\">Blah</textarea>" (text-area { :text "Blah" } :message :text { :rows 60, :cols 40 } ))))
+  (is (= 
+    (htmli [:textarea { :cols 20, :id "message-text", :name "message[text]", :rows 40 } "Blah"])
+    (text-area { :text "Blah" } :message :text )))
+  (is (= 
+    (htmli [:textarea { :cols 40, :id "message-text", :name "message[text]", :rows 60 } "Blah"])
+    (text-area { :text "Blah" } :message :text { :rows 60, :cols 40 } ))))
 
 (deftest test-hidden-field
-  (is (= "<input id=\"message-text\" name=\"message[text]\" type=\"hidden\" value=\"Blah\" />" (hidden-field { :text "Blah" } :message :text )))
-  (is (= "<input class=\"hidden-message\" id=\"message-text\" name=\"message[text]\" type=\"hidden\" value=\"Blah\" />" (hidden-field { :text "Blah" } :message :text { :class "hidden-message" } ))))
+  (is (= 
+    (htmli [:input { :id "message-text", :name "message[text]", :type "hidden", :value "Blah" }])
+    (hidden-field { :text "Blah" } :message :text )))
+  (is (= 
+    (htmli [:input { :class "hidden-message", :id "message-text", :name "message[text]", :type "hidden", :value "Blah" }])
+    (hidden-field { :text "Blah" } :message :text { :class "hidden-message" } ))))
 
 (deftest test-option-tag
-  (is (= "<option value=\"blah\">test</option>" (option-tag "test" "blah" false)))
-  (is (= "<option selected=\"true\" value=\"blah\">test</option>" (option-tag "test" "blah" true)))
-  (is (= "<option value=\"blah\">test</option>" (option-tag :test { :value "blah" })))
-  (is (= "<option selected=\"true\" value=\"blah\">test</option>" (option-tag :test { :value "blah" :selected true })))
-  (is (= "<option value=\"test\">test</option>" (option-tag :test {})))) 
+  (is (= 
+    (htmli [:option { :value "blah" } "test"])
+    (option-tag "test" "blah" false)))
+  (is (= 
+    (htmli [:option { :selected "true", :value "blah" } "test"])
+    (option-tag "test" "blah" true)))
+  (is (= 
+    (htmli [:option { :value "blah" } "test"])
+    (option-tag :test { :value "blah" })))
+  (is (= 
+    (htmli [:option { :selected "true", :value "blah" } "test"])
+    (option-tag :test { :value "blah", :selected true })))
+  (is (= 
+    (htmli [:option { :value "test" } "test"])
+    (option-tag :test {})))) 
 
 (deftest test-option-tags
-  (is (= "<option value=\"blah\">test</option>" (option-tags { :test { :value "blah" }})))
-  (is (= "<option value=\"blah\">test</option>" (option-tags { "test" { :value "blah" }})))
-  (is (= "<option selected=\"true\" value=\"blah\">test</option><option value=\"blah2\">test2</option>" (option-tags { :test { :value "blah" :selected true }, :test2 { :value "blah2" }})))
-  (is (= "<option selected=\"true\" value=\"test\">test</option><option value=\"test2\">test2</option>" (option-tags { :test { :selected true }, :test2 nil })))
-  (is (= "<option value=\"test1\">test1</option><option value=\"test2\">test2</option><option value=\"test3\">test3</option>" (option-tags { :test1 nil, :test2 nil, :test3 nil }))))
+  (is (= 
+    (htmli [:option { :value "blah" } "test"])
+    (option-tags { :test { :value "blah" }})))
+  (is (= 
+    (htmli [:option { :value "blah" } "test"])
+    (option-tags { "test" { :value "blah" }})))
+  (is (= 
+    (htmli 
+      [:option { :selected "true", :value "blah" } "test"]
+      [:option { :value "blah2" } "test2"])
+    (option-tags { :test { :value "blah" :selected true }, :test2 { :value "blah2" }})))
+  (is (= 
+    (htmli 
+      [:option { :selected "true", :value "test" } "test"]
+      [:option { :value "test2" } "test2"])
+    (option-tags { :test { :selected true }, :test2 nil })))
+  (is (= 
+    (htmli 
+      [:option { :value "test1" } "test1"]
+      [:option { :value "test2" } "test2"]
+      [:option { :value "test3" } "test3"])
+    (option-tags { :test1 nil, :test2 nil, :test3 nil }))))
 
 (deftest test-select-tag
-  (is (= "<select />" (select-tag {})))
-  (is (= "<select id=\"pony\"></select>" (select-tag { :html-options { :id "pony" } })))
+  (is (= (htmli [:select]) (select-tag {})))
+  (is (= (htmli [:select { :id "pony" } ""]) (select-tag { :html-options { :id "pony" } })))
   (is (= 
-    "<select id=\"pony\"><option value=\"blah\">test</option></select>" 
+    (htmli 
+      [:select { :id "pony" } 
+        [:option { :value "blah" } "test"]])
     (select-tag { :html-options { :id "pony" } :option-map { :test { :value "blah" }} })))
   (is (= 
-    "<select name=\"foo[bar]\"><option value=\"bar\">bar</option><option selected=\"true\" value=\"baz\">baz</option><option value=\"boz\">boz</option></select>" 
+    (htmli 
+      [:select { :name "foo[bar]" } 
+        [:option { :value "bar" } "bar"]
+        [:option { :selected "true", :value "baz" } "baz"]
+        [:option { :value "boz" } "boz"]])
     (select-tag { :bar "baz" } :foo :bar
       { :option-map 
         { :bar nil
@@ -128,9 +197,11 @@
     (image-path "http://www.conjureapplication.com/img/edit.png"))))
 
 (deftest test-image-tag
-  (is (= "<img src=\"/images/icon.png\" />" (image-tag "icon.png")))
-  (is (= "<img src=\"/icons/icon.png\" />" (image-tag "/icons/icon.png")))
-  (is (= "<img class=\"menu-icon\" src=\"/icons/icon.png\" />" (image-tag "/icons/icon.png" { :class "menu-icon" }))))
+  (is (= (htmli [:img { :src "/images/icon.png" }]) (image-tag "icon.png")))
+  (is (= (htmli [:img { :src "/icons/icon.png" }]) (image-tag "/icons/icon.png")))
+  (is (= 
+    (htmli [:img { :class "menu-icon", :src "/icons/icon.png" }]) 
+    (image-tag "/icons/icon.png" { :class "menu-icon" }))))
 
 (deftest test-stylesheet-path
   (is (= "/stylesheets/style.css" (stylesheet-path "style")))
@@ -141,19 +212,21 @@
 
 (deftest test-stylesheet-link-tag
   (is (= 
-    "<link href=\"/stylesheets/style.css\" media=\"screen\" rel=\"stylesheet\" type=\"text/css\" />" 
+    (htmli [:link { :href "/stylesheets/style.css", :media "screen", :rel "stylesheet", :type "text/css" }])
     (stylesheet-link-tag "style")))
   (is (= 
-    "<link href=\"/stylesheets/style.css\" media=\"screen\" rel=\"stylesheet\" type=\"text/css\" />" 
+    (htmli [:link { :href "/stylesheets/style.css", :media "screen", :rel "stylesheet", :type "text/css" }])
     (stylesheet-link-tag "style.css")))
   (is (= 
-    "<link href=\"http://www.conjureapplication.com/style.css\" media=\"screen\" rel=\"stylesheet\" type=\"text/css\" />" 
+    (htmli [:link { :href "http://www.conjureapplication.com/style.css", :media "screen", :rel "stylesheet", :type "text/css" }])
     (stylesheet-link-tag "http://www.conjureapplication.com/style.css")))
   (is (= 
-    "<link href=\"/stylesheets/style.css\" media=\"all\" rel=\"stylesheet\" type=\"text/css\" />" 
+    (htmli [:link { :href "/stylesheets/style.css", :media "all", :rel "stylesheet", :type "text/css" }])
     (stylesheet-link-tag "style.css" { :media "all" })))
   (is (= 
-    "<link href=\"/stylesheets/random.styles.css\" media=\"screen\" rel=\"stylesheet\" type=\"text/css\" /><link href=\"/css/stylish.css\" media=\"screen\" rel=\"stylesheet\" type=\"text/css\" />" 
+    (htmli 
+      [:link { :href "/stylesheets/random.styles.css", :media "screen", :rel "stylesheet", :type "text/css" }]
+      [:link { :href "/css/stylish.css", :media "screen", :rel "stylesheet", :type "text/css" }]) 
     (stylesheet-link-tag ["random.styles.css" "/css/stylish"]))))
 
 (deftest test-javascript-path
@@ -166,66 +239,89 @@
     (javascript-path "http://www.conjureapplication.com/js/xmlhr.js"))))
     
 (deftest test-javascript-include-tag
-  (is (= "<script src=\"/javascripts/xmlhr.js\" type=\"text/javascript\" />" (javascript-include-tag "xmlhr")))
-  (is (= "<script src=\"/javascripts/xmlhr.js\" type=\"text/javascript\" />" (javascript-include-tag "xmlhr.js")))
   (is (= 
-    "<script src=\"/javascripts/common.js\" type=\"text/javascript\" /><script src=\"/elsewhere/cools.js\" type=\"text/javascript\" />"
+    (htmli [:script { :src "/javascripts/xmlhr.js", :type "text/javascript" } ""])
+    (javascript-include-tag "xmlhr")))
+  (is (= 
+    (htmli [:script { :src "/javascripts/xmlhr.js", :type "text/javascript" } ""])
+    (javascript-include-tag "xmlhr.js")))
+  (is (= 
+    (htmli 
+      [:script { :src "/javascripts/common.js", :type "text/javascript" } ""]
+      [:script { :src "/elsewhere/cools.js", :type "text/javascript" } ""])
     (javascript-include-tag ["common.js", "/elsewhere/cools"])))
   (is (= 
-    "<script src=\"http://www.conjureapplication.com/js/xmlhr.js\" type=\"text/javascript\" />"
+    (htmli [:script { :src "http://www.conjureapplication.com/js/xmlhr.js", :type "text/javascript" } ""])
     (javascript-include-tag "http://www.conjureapplication.com/js/xmlhr")))
   (is (= 
-    "<script src=\"http://www.conjureapplication.com/js/xmlhr.js\" type=\"text/javascript\" />"
+    (htmli [:script { :src "http://www.conjureapplication.com/js/xmlhr.js", :type "text/javascript" } ""])
     (javascript-include-tag "http://www.conjureapplication.com/js/xmlhr.js"))))
+    
+(deftest test-jquery-include-tag
+  (is (= 
+    (htmli [:script { :src (str "/javascripts/" environment/jquery), :type "text/javascript" } ""])
+    (jquery-include-tag))))
 
 (deftest test-mail-to
-  (is (= "<a href=\"mailto:me@example.com\">me@example.com</a>" (mail-to { :address "me@example.com" })))
-  (is (= "<a href=\"mailto:me@example.com\">My email</a>" (mail-to { :address "me@example.com", :name "My email" })))
   (is (= 
-    "<a class=\"email\" href=\"mailto:me@example.com\">My email</a>" 
+    (htmli [:a { :href "mailto:me@example.com" } "me@example.com"])
+    (mail-to { :address "me@example.com" })))
+  (is (= 
+    (htmli [:a { :href "mailto:me@example.com" } "My email"])
+    (mail-to { :address "me@example.com", :name "My email" })))
+  (is (= 
+    (htmli [:a { :class "email", :href "mailto:me@example.com" } "My email"])
     (mail-to { :address "me@example.com", :name "My email" :html-options { :class "email" }})))
   (is (= 
-    "<a href=\"mailto:me@example.com\">me at example.com</a>" 
+    (htmli [:a { :href "mailto:me@example.com" } "me at example.com"])
     (mail-to { :address "me@example.com", :replace-at " at " })))
   (is (= 
-    "<a href=\"mailto:me@example.com\">me@example dot com</a>" 
+    (htmli [:a { :href "mailto:me@example.com" } "me@example dot com"])
     (mail-to { :address "me@example.com", :replace-dot " dot " })))
-  (is (= 
-    "<a href=\"mailto:me@example.com\">me at example dot com</a>" 
+  (is (=
+    (htmli [:a { :href "mailto:me@example.com" } "me at example dot com"])
     (mail-to { :address "me@example.com", :replace-at " at ", :replace-dot " dot " })))
   (is (= 
-    "<a href=\"mailto:me@example.com?cc=you%40example.com\">me@example.com</a>" 
+    (htmli [:a { :href "mailto:me@example.com?cc=you%40example.com" } "me@example.com"])
     (mail-to { :address "me@example.com", :cc "you@example.com" })))
-  (is (= 
-    "<a href=\"mailto:me@example.com?subject=Yo%21&cc=you%40example.com\">me@example.com</a>" 
+  (is (=
+    (htmli [:a { :href "mailto:me@example.com?subject=Yo%21&cc=you%40example.com" } "me@example.com"])
     (mail-to { :address "me@example.com", :cc "you@example.com", :subject "Yo!" })))
   (is (= 
-    "<a href=\"mailto:me@example.com?body=Hey.&bcc=you%40example.com\">me@example.com</a>" 
+    (htmli [:a { :href "mailto:me@example.com?body=Hey.&bcc=you%40example.com" } "me@example.com"])
     (mail-to { :address "me@example.com", :bcc "you@example.com", :body "Hey." }))))
 
 (deftest test-check-box
   (is (= 
-    "<input id=\"puppy-good\" name=\"puppy[good]\" type=\"checkbox\" value=\"1\" /><input id=\"puppy-good\" name=\"puppy[good]\" type=\"hidden\" value=\"0\" />"
+    (htmli 
+      [:input { :id "puppy-good", :name "puppy[good]", :type "checkbox", :value "1" }]
+      [:input { :id "puppy-good", :name "puppy[good]", :type "hidden", :value "0" }])
     (check-box { :good 0 } :puppy :good)))
   (is (= 
-    "<input id=\"blah\" name=\"puppy[good]\" type=\"checkbox\" value=\"1\" /><input id=\"blah\" name=\"puppy[good]\" type=\"hidden\" value=\"0\" />"
+    (htmli 
+      [:input { :id "blah", :name "puppy[good]", :type "checkbox", :value "1" }]
+      [:input { :id "blah", :name "puppy[good]", :type "hidden", :value "0" }])
     (check-box { :good 0 } :puppy :good { :id "blah" })))
-  (is (= 
-    "<input id=\"puppy-good\" name=\"puppy[good]\" type=\"checkbox\" value=\"true\" /><input id=\"puppy-good\" name=\"puppy[good]\" type=\"hidden\" value=\"0\" />"
+  (is (=
+    (htmli 
+      [:input { :id "puppy-good", :name "puppy[good]", :type "checkbox", :value "true" }]
+      [:input { :id "puppy-good", :name "puppy[good]", :type "hidden", :value "0" }])
     (check-box { :good 0 } :puppy :good {} true)))
   (is (= 
-    "<input id=\"puppy-good\" name=\"puppy[good]\" type=\"checkbox\" value=\"true\" /><input id=\"puppy-good\" name=\"puppy[good]\" type=\"hidden\" value=\"false\" />"
+    (htmli 
+      [:input { :id "puppy-good", :name "puppy[good]", :type "checkbox", :value "true" }]
+      [:input { :id "puppy-good", :name "puppy[good]", :type "hidden", :value "false" }])
     (check-box { :good 0 } :puppy :good {} true false))))
 
 (deftest test-radio-button
   (is (= 
-    "<input id=\"puppy-breed\" name=\"puppy[breed]\" type=\"radio\" value=\"great-dane\" />" 
+    (htmli [:input { :id "puppy-breed", :name "puppy[breed]", :type "radio", :value "great-dane" }])
     (radio-button { :breed "chihuahua" } :puppy :breed "great-dane")))
-  (is (= 
-    "<input checked=\"checked\" id=\"puppy-breed\" name=\"puppy[breed]\" type=\"radio\" value=\"chihuahua\" />" 
+  (is (=
+    (htmli [:input { :checked "checked", :id "puppy-breed", :name "puppy[breed]", :type "radio", :value "chihuahua" }])
     (radio-button { :breed "chihuahua" } :puppy :breed "chihuahua")))
-  (is (= 
-    "<input id=\"dog-breed\" name=\"puppy[breed]\" type=\"radio\" value=\"great-dane\" />" 
+  (is (=
+    (htmli [:input { :id "dog-breed", :name "puppy[breed]", :type "radio", :value "great-dane" }])  
     (radio-button { :breed "chihuahua" } :puppy :breed "great-dane" { :id "dog-breed" }))))
 
 (deftest test-xml-header-tag
@@ -242,3 +338,101 @@
   (is (html-doctype :xhtml1.0-frameset))
   (is (html-doctype :xhtml1.1))
   (is (= (html-doctype) (html-doctype :xhtml1.0-transitional))))
+
+(deftest test-success-fn
+  (is (= '(ajaxContent "#test-id") (success-fn "test-id")))
+  (is (= '(ajaxContent "#test-id") (success-fn "test-id" :content)))
+  (is (= '(ajaxReplace "#test-id") (success-fn "test-id" :replace)))
+  (is (= '(ajaxBefore "#test-id") (success-fn "test-id" :before)))
+  (is (= '(ajaxAfter "#test-id") (success-fn "test-id" :after)))
+  (is (= '(ajaxTop "#test-id") (success-fn "test-id" :top)))
+  (is (= '(ajaxBottom "#test-id") (success-fn "test-id" :bottom))))
+  
+(deftest test-error-fn
+  (is (= 'ajaxError (error-fn))))
+
+(deftest test-link-to-remote
+  (let [ajax-map { :type "POST"
+                   :url "/home/index"
+                   :dataType "html"
+                   :success 'successFunction
+                   :error 'ajaxError
+                   :confirm nil }
+        script-tag [:script { :type "text/javascript" }
+                     (scriptjure/js 
+                       (ajaxClick "#test-id" (clj ajax-map)))]
+        a-tag [:a { :href "#", :id "test-id"}
+                "update"]
+        link-to-options { :controller "home", 
+                          :action "index", 
+                          :update 'successFunction, 
+                          :html-options { :id "test-id" } }]
+    (is (= 
+      (htmli a-tag script-tag)
+      (link-to-remote "update" link-to-options)))
+    (is (= 
+      (htmli a-tag
+        [:script { :type "text/javascript" }
+          (scriptjure/js 
+            (ajaxClick "#test-id" (clj (assoc ajax-map :type "GET"))))])
+      (link-to-remote "update" (assoc link-to-options :method "GET"))))
+    (is (= 
+      (htmli a-tag script-tag)
+      (link-to-remote "update" (assoc link-to-options :update { :success 'successFunction }))))
+    (is (= 
+      (htmli 
+        [:a { :href "/noscript/update", :id "test-id"}
+          "update"]
+        [:script { :type "text/javascript" }
+          (scriptjure/js 
+            (ajaxClick "#test-id" (clj (assoc ajax-map :error 'errorFunction))))])
+      (link-to-remote "update" 
+        (merge 
+          link-to-options 
+          { :update { :success 'successFunction, 
+                      :error 'errorFunction }
+            :html-options { :id "test-id", 
+                            :href "/noscript/update" } }))))))
+
+(deftest test-remote-form-for
+  (let [form-map { :action "/home/index", :id "test-id", :method "post", :name "home" }
+        form-tag [:form form-map
+                   [:input { :type "submit", :value "Submit" } ]]
+        ajax-map { :type "POST"
+                   :url "/home/index"
+                   :dataType "html"
+                   :success 'successFunction
+                   :error 'ajaxError
+                   :confirm nil }
+        script-tag [:script { :type "text/javascript" }
+                     (scriptjure/js 
+                       (ajaxSubmit "#test-id" (clj ajax-map)))]
+        form-for-options { :url { :controller "home", 
+                                  :action "index" }, 
+                           :update 'successFunction, 
+                           :html-options { :id "test-id" } }
+        form-for-body (form-button "Submit")]
+    (is (=
+      (htmli form-tag script-tag)
+      (remote-form-for form-for-options form-for-body)))
+    (is (=
+      (htmli form-tag 
+        [:script { :type "text/javascript" }
+         (scriptjure/js 
+           (ajaxSubmit "#test-id" (clj (assoc ajax-map :type "GET"))))])
+      (remote-form-for (assoc form-for-options :method "GET") form-for-body)))
+    (is (=
+      (htmli 
+        [:form (merge form-map { :name "noscript-update", :action "/noscript/update" })
+          [:input { :type "submit", :value "Submit" } ]]
+        [:script { :type "text/javascript" }
+         (scriptjure/js 
+           (ajaxSubmit "#test-id" (clj (assoc ajax-map :error 'errorFunction))))])
+      (remote-form-for 
+        (merge form-for-options 
+          { :name "noscript-update"
+            :update { :success 'successFunction, 
+                      :error 'errorFunction }
+            :html-options { :id "test-id", 
+                            :action "/noscript/update" } })
+        form-for-body)))))

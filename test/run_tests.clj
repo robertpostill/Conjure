@@ -52,11 +52,12 @@
   (let [initial-value (java-utils/get-system-property environment/conjure-environment-property nil)]
     (if (not initial-value)
       (java-utils/set-system-properties { environment/conjure-environment-property "test" })))
+  (println "environment name: " (environment/environment-name))
   (conjure-server/init))
 
 (init)
 
-(if (not-empty *command-line-args*)
+(if (and *command-line-args* (first *command-line-args*) (> (.length (first *command-line-args*)) 0))
   (do
     (println "Running scripts:" *command-line-args*)
     (doall (map 

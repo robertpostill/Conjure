@@ -44,37 +44,83 @@
   (is (= {} (parse-params {} ))))
 
 (deftest test-update-request-map
-  (let [uri (str "/" controller-name "/" action-name "/1")]
-    (is (= { :controller controller-name, :action action-name, :params { :id "1" } :uri uri } (update-request-map { :uri uri }))))
-  (let [uri (str "/" controller-name "/" action-name)]
-    (is (= { :controller controller-name, :action action-name, :params {} :uri uri } (update-request-map { :uri uri }))))
-  (is (= { :params {}, :action "index", :controller "test", :uri "test" } (update-request-map { :uri controller-name })))
-  (is (= { :params {}, :action "index", :controller "home", :uri ""} (update-request-map { :uri "" })))
-  (is (= { :params {} } (update-request-map nil)))
-  (is (= { :params { :foo "bar" }, :action "index", :controller "home", :uri "", :query-string "foo=bar" } (update-request-map { :uri "" :query-string "foo=bar" })))
-  (let [uri (str "/" controller-name "/" action-name "/1")]
-    (is (= { :controller controller-name, :action action-name, :params { :id "1", :foo "bar" }, :uri uri, :query-string "foo=bar" } (update-request-map { :uri uri, :query-string "foo=bar" })))))
-  
-(deftest test-controller-file-name
-  (is (= (str controller-name "_controller.clj") (controller-file-name { :controller controller-name })))
-  (is (nil? (controller-file-name { :controller "" })))
-  (is (nil? (controller-file-name { :controller nil })))
-  (is (nil? (controller-file-name {}))))
-  
-(deftest test-fully-qualified-action
-  (is (= (str "controllers." controller-name "-controller/" action-name) (fully-qualified-action { :controller controller-name, :action action-name })))
-  (is (= nil (fully-qualified-action { :controller controller-name })))
-  (is (= nil (fully-qualified-action { })))
-  (is (= nil (fully-qualified-action nil))))
-  
-(deftest test-load-controller
-  (load-controller (controller-file-name { :controller controller-name })))
-    
+  (let [headers { "cookie" "SID=blah" }]
+    (let [uri (str "/" controller-name "/" action-name "/1")]
+      (is (= 
+        { :controller controller-name,
+          :action action-name,
+          :params { :id "1" }
+          :uri uri,
+          :headers headers }
+        (update-request-map 
+          { :uri uri, 
+            :headers headers }))))
+            
+    (let [uri (str "/" controller-name "/" action-name)]
+      (is (= 
+        { :controller controller-name,
+          :action action-name,
+          :params {}
+          :uri uri
+          :headers headers }
+        (update-request-map 
+          { :uri uri
+            :headers headers }))))
+      
+    (is (= 
+        { :params {}, 
+          :action "index", 
+          :controller "test", 
+          :uri "test"
+          :headers headers } 
+        (update-request-map 
+          { :uri controller-name
+            :headers headers })))
+          
+    (is (= 
+      { :params {}, 
+        :action "index", 
+        :controller "home", 
+        :uri ""
+        :headers headers } 
+      (update-request-map 
+        { :uri ""
+          :headers headers })))
+        
+    (let [request-map (update-request-map nil)]
+      (is (= {} (:params request-map)))
+      (is (contains? request-map :temp-session)))
+      
+    (is (=
+      { :params { :foo "bar" },
+        :action "index",
+        :controller "home",
+        :uri "",
+        :query-string "foo=bar"
+        :headers headers }
+      (update-request-map 
+        { :uri "",
+          :query-string "foo=bar"
+          :headers headers })))
+          
+    (let [uri (str "/" controller-name "/" action-name "/1")]
+      (is (= 
+        { :controller controller-name, 
+          :action action-name, 
+          :params { :id "1", :foo "bar" }, 
+          :uri uri, 
+          :query-string "foo=bar"
+          :headers headers } 
+        (update-request-map 
+          { :uri uri,
+            :query-string "foo=bar"
+            :headers headers }))))))
+      
 (deftest test-process-request
   (process-request { :controller controller-name, :action action-name }))
   
-(deftest test-render-view
-  (render-view { :controller controller-name, :action action-name } ))
+;(deftest test-render-view
+;  (render-view { :controller controller-name, :action action-name } ))
 
 (deftest test-http-config
   (is (not (nil? (http-config)))))
