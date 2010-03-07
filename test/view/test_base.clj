@@ -22,7 +22,10 @@
     (link-to "view" { :controller "hello" :action "show" :html-options { :id "foo" :class "bar" } })))
   (is (= 
     (htmli [:a { :href "/hello/show" } "show"])
-    (link-to #(:action %) { :controller "hello" :action "show" }))))
+    (link-to #(:action %) { :controller "hello" :action "show" })))
+  (is (= 
+    (htmli [:a { :href "/home/index" } "view"])
+    (link-to "view" { :controller "hello" :action "show" } { :html-options { :href "/home/index" } } ))))
 
 (deftest test-link-to-if
   (is (= 
@@ -49,13 +52,16 @@
 (deftest test-form-for
   (is (= 
     (htmli [:form { :action "/hello/create", :method "post", :name "create" } "Blah"])
-    (form-for { :name "create", :url { :controller "hello", :action "create" } } "Blah")))
+    (form-for { :name "create", :controller "hello", :action "create" } "Blah")))
   (is (= 
     (htmli [:form { :action "/hello/create", :method "post", :name "hello" } "Blah"])
-    (form-for { :url { :controller "hello", :action "create" } } "Blah")))
+    (form-for { :controller "hello", :action "create" } "Blah")))
   (is (= 
     (htmli [:form { :action "/hello/create", :method "post", :name "create" } "create"])
-    (form-for { :name "create", :url { :controller "hello", :action "create" } } #(:action %)))))
+    (form-for { :name "create", :controller "hello", :action "create" } #(:action %))))
+  (is (= 
+    (htmli [:form { :action "/home/index", :method "post", :name "create" } "Blah"])
+    (form-for { :name "create", :controller "hello", :action "create", :html-options { :action "/home/index" } } "Blah"))))
 
 (deftest test-text-field
   (is (= 
@@ -140,7 +146,29 @@
       { :option-map 
         { :bar nil
           :baz nil
-          :boz nil } }))))
+          :boz nil } })))
+  (is (= 
+    (htmli 
+      [:select { :name "foo[bar]" } 
+        [:option { :value "bar" } "bar"]
+        [:option { :selected "true", :value "baz" } "baz"]
+        [:option { :value "boz" } "boz"]])
+    (select-tag { :bar "baz" } :foo :bar
+      { :option-map 
+        { :bar "bar"
+          :baz "baz"
+          :boz "boz" } })))
+  (is (= 
+    (htmli 
+      [:select { :name "foo[bar]" } 
+        [:option { :value "bar" } "bar"]
+        [:option { :selected "true", :value "baz" } "baz"]
+        [:option { :value "boz" } "boz"]])
+    (select-tag { :bar "baz" } :foo :bar
+      { :option-map 
+        { :bar { :value "bar" }
+          :baz { :value "baz" }
+          :boz { :value "boz" } } }))))
           
 (deftest test-option-map-select-value
   (is (= { :bar nil
@@ -351,7 +379,7 @@
 (deftest test-error-fn
   (is (= 'ajaxError (error-fn))))
 
-(deftest test-link-to-remote
+(deftest test-ajax-link-to
   (let [ajax-map { :type "POST"
                    :url "/home/index"
                    :dataType "html"
@@ -369,16 +397,22 @@
                           :html-options { :id "test-id" } }]
     (is (= 
       (htmli a-tag script-tag)
-      (link-to-remote "update" link-to-options)))
+      (ajax-link-to "update" link-to-options)))
     (is (= 
       (htmli a-tag
         [:script { :type "text/javascript" }
           (scriptjure/js 
             (ajaxClick "#test-id" (clj (assoc ajax-map :type "GET"))))])
-      (link-to-remote "update" (assoc link-to-options :method "GET"))))
+      (ajax-link-to "update" (assoc link-to-options :method "GET"))))
+    (is (= 
+      (htmli a-tag
+        [:script { :type "text/javascript" }
+          (scriptjure/js 
+            (ajaxClick "#test-id" (clj (assoc ajax-map :url "/hello/show"))))])
+      (ajax-link-to "update" (assoc link-to-options :ajax-url "/hello/show"))))
     (is (= 
       (htmli a-tag script-tag)
-      (link-to-remote "update" (assoc link-to-options :update { :success 'successFunction }))))
+      (ajax-link-to "update" (assoc link-to-options :update { :success 'successFunction }))))
     (is (= 
       (htmli 
         [:a { :href "/noscript/update", :id "test-id"}
@@ -386,7 +420,7 @@
         [:script { :type "text/javascript" }
           (scriptjure/js 
             (ajaxClick "#test-id" (clj (assoc ajax-map :error 'errorFunction))))])
-      (link-to-remote "update" 
+      (ajax-link-to "update" 
         (merge 
           link-to-options 
           { :update { :success 'successFunction, 
@@ -394,10 +428,10 @@
             :html-options { :id "test-id", 
                             :href "/noscript/update" } }))))))
 
-(deftest test-remote-form-for
+(deftest test-ajax-form-for
   (let [form-map { :action "/home/index", :id "test-id", :method "post", :name "home" }
         form-tag [:form form-map
-                   [:input { :type "submit", :value "Submit" } ]]
+                   [:input { :type "submit", :value "Submit", :name "button" } ]]
         ajax-map { :type "POST"
                    :url "/home/index"
                    :dataType "html"
@@ -407,28 +441,34 @@
         script-tag [:script { :type "text/javascript" }
                      (scriptjure/js 
                        (ajaxSubmit "#test-id" (clj ajax-map)))]
-        form-for-options { :url { :controller "home", 
-                                  :action "index" }, 
+        form-for-options { :controller "home", 
+                           :action "index", 
                            :update 'successFunction, 
                            :html-options { :id "test-id" } }
         form-for-body (form-button "Submit")]
     (is (=
       (htmli form-tag script-tag)
-      (remote-form-for form-for-options form-for-body)))
+      (ajax-form-for form-for-options form-for-body)))
     (is (=
       (htmli form-tag 
         [:script { :type "text/javascript" }
          (scriptjure/js 
            (ajaxSubmit "#test-id" (clj (assoc ajax-map :type "GET"))))])
-      (remote-form-for (assoc form-for-options :method "GET") form-for-body)))
+      (ajax-form-for (assoc form-for-options :method "GET") form-for-body)))
+    (is (=
+      (htmli form-tag 
+        [:script { :type "text/javascript" }
+         (scriptjure/js 
+           (ajaxSubmit "#test-id" (clj (assoc ajax-map :url "/hello/show"))))])
+      (ajax-form-for (assoc form-for-options :ajax-url "/hello/show") form-for-body)))
     (is (=
       (htmli 
         [:form (merge form-map { :name "noscript-update", :action "/noscript/update" })
-          [:input { :type "submit", :value "Submit" } ]]
+          [:input { :type "submit", :value "Submit", :name "button" } ]]
         [:script { :type "text/javascript" }
          (scriptjure/js 
            (ajaxSubmit "#test-id" (clj (assoc ajax-map :error 'errorFunction))))])
-      (remote-form-for 
+      (ajax-form-for 
         (merge form-for-options 
           { :name "noscript-update"
             :update { :success 'successFunction, 
