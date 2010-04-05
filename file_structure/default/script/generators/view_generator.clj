@@ -1,6 +1,7 @@
 (ns generators.view-generator
   (:import [java.io File])
-  (:require [conjure.view.builder :as builder]
+  (:require [clojure.contrib.logging :as logging]
+            [conjure.view.builder :as builder]
             [conjure.view.util :as util]
             [conjure.util.file-utils :as file-utils]
             [conjure.util.loading-utils :as loading-utils]
@@ -38,7 +39,7 @@ content." }
   generate-file-content
     ([view-file controller] (generate-file-content view-file controller nil))
     ([view-file controller content]
-      (let [view-namespace (util/view-namespace controller view-file)
+      (let [view-namespace (util/view-namespace view-file)
             view-content (str (if content 
                                 content 
                                 (generate-standard-content 
@@ -70,13 +71,10 @@ content." }
                 (if view-file
                   (generate-file-content view-file controller content)))
               (view-test-generator/generate-unit-test controller action silent test-content))
-            (if (not silent)
-              (do
-                (println "Could not find views directory.")
-                (println view-directory)))))
+            (logging/error (str "Could not find views directory: " view-directory))))
         (view-usage))))
         
 (defn 
 #^{:doc "Generates a migration file for the migration name given in params."}
-  generate-view [params]
+  generate [params]
   (generate-view-file { :controller (first params), :action (second params) }))

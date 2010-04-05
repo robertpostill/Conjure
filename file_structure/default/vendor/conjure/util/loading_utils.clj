@@ -1,9 +1,12 @@
 (ns conjure.util.loading-utils
   (:import [java.io File])
   (:require [clojure.contrib.classpath :as classpath]
+            [clojure.contrib.logging :as logging]
+            [clojure.contrib.ns-utils :as ns-utils]
             [clojure.contrib.seq-utils :as seq-utils]
             [clojure.contrib.str-utils :as clojure-str-utils]
             [clojure.contrib.java-utils :as java-utils]
+            [clojure.set :as clj-set]
             [conjure.util.string-utils :as string-utils]))
 
 (defn
@@ -103,15 +106,21 @@
 #^{:doc "Converts all slashes to periods in string."}
   slashes-to-dots [string]
   (if string
-    (clojure-str-utils/re-gsub #"/|\\" "." string) ; "\" Fixing a bug with syntax highlighting
+    (clojure-str-utils/re-gsub #"/|\\" ; "\" Fixing a bug with syntax highlighting
+       "." string) 
     string))
     
 (defn
-#^{:doc "Converts all periods to slashes in string."}
+#^{ :doc "Converts all periods to slashes in string." }
   dots-to-slashes [string]
   (if string
     (. string replace "." (file-separator))
     string))
+
+(defn
+#^{ :doc "Returns true if the given file is a clojure file." }
+  clj-file? [file]
+  (and (.isFile file) (.endsWith (.getName file) ".clj")))
 
 (defn
 #^{:doc "Converts the given clj file name to a symbol string. For example: \"loading_utils.clj\" would get converted into \"loading-utils\""}
@@ -127,12 +136,76 @@
       dashed-name)))
 
 (defn
-#^{:doc "Returns a string for the namespace of the given file in the given directory."}
+#^{ :doc "Returns the namespace of the given file assuming the classpath include the given classpath parent 
+directory." }
+  file-namespace [classpath-parent-directory file]
+  (if file
+    (string-utils/strip-ending
+      (clojure-str-utils/str-join "." 
+        (map underscores-to-dashes 
+          (string-utils/tokenize 
+            (if classpath-parent-directory
+              (.substring (.getPath file)
+                (.length (.getPath classpath-parent-directory))) 
+              (.getPath file))
+            "\\/")))
+      ".clj")))
+
+(defn
+#^{ :doc "Returns a string for the namespace of the given file in the given directory." }
   namespace-string-for-file [directory file-name]
   (if file-name
     (if (and directory (> (. (. directory trim) length) 0))
       (let [trimmed-directory (. directory trim)
-            slash-trimmed-directory (if (or (. trimmed-directory startsWith "/") (. trimmed-directory startsWith "\\")) (. trimmed-directory substring 1) trimmed-directory)]
+            slash-trimmed-directory (if (or (. trimmed-directory startsWith "/") 
+                                            (. trimmed-directory startsWith "\\")) ;" Fix highlight issue.
+                                            (. trimmed-directory substring 1) trimmed-directory)]
         (str (slashes-to-dots (underscores-to-dashes slash-trimmed-directory)) "." (clj-file-to-symbol-string file-name)))
       (clj-file-to-symbol-string file-name))
     file-name))
+
+(defn
+#^{ :doc "Returns true if the given var-name is in a conjure namespace (controller, helper, model or view)." }
+  conjure-namespace? [var-name]
+  (or 
+    (.startsWith var-name "controllers.")
+    (.startsWith var-name "helpers.")
+    (.startsWith var-name "models.")
+    (.startsWith var-name "views.")))
+
+(defn
+#^{ :doc "Returns a set of conjure namespaces (controllers, models, helpers and views) used by the given controller." }
+  conjure-namespaces [namespace-name]
+  (let [namespace-to-search (ns-utils/get-ns (symbol namespace-name))]
+    (reduce
+      (fn [namespace-set var-name] 
+        (conj namespace-set 
+          (let [slash-index (.indexOf var-name "/")]
+            (if (> slash-index 0) 
+              (.substring var-name 0 slash-index)
+              var-name))))
+      #{}
+      (filter 
+        conjure-namespace?
+        (concat 
+          (map str (vals (ns-aliases namespace-to-search)))
+          (map #(.substring (str %) 2) 
+            (filter #(not (.startsWith (str %) "#'clojure"))
+              (vals (ns-refers namespace-to-search)))))))))
+
+(defn
+#^{ :doc "Reloads all of the given namespaces." }
+  reload-namespaces [namespaces]
+  (doseq [ns-to-load namespaces]
+    (require :reload (symbol ns-to-load))))
+
+(defn
+#^{ :doc "Reloads all of the conjure namespaces refered to by the namespace with the given name." }
+  reload-conjure-namespaces
+  ([namespace-name] (reload-conjure-namespaces namespace-name #{}))
+  ([namespace-name loaded-namespaces]
+    (let [namespaces-to-load (filter #(not (contains? loaded-namespaces %)) (conjure-namespaces namespace-name))]
+      (when (not-empty namespaces-to-load)
+        (reload-namespaces namespaces-to-load)
+        (doseq [child-namespace namespaces-to-load]
+          (reload-conjure-namespaces child-namespace (clj-set/union loaded-namespaces (set namespaces-to-load))))))))

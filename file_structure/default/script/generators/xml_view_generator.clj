@@ -1,6 +1,7 @@
 (ns generators.xml-view-generator
   (:import [java.io File])
-  (:require [conjure.view.builder :as builder]
+  (:require [clojure.contrib.logging :as logging]
+            [conjure.view.builder :as builder]
             [conjure.view.util :as util]
             [conjure.util.file-utils :as file-utils]
             [conjure.util.loading-utils :as loading-utils]
@@ -29,7 +30,7 @@ inner-content is added to the body of the xml view code."}
   generate-file-content
     ([xml-view-file controller] (generate-file-content xml-view-file controller nil))
     ([xml-view-file controller xml-content]
-      (let [xml-view-namespace (util/view-namespace controller xml-view-file)
+      (let [xml-view-namespace (util/view-namespace xml-view-file)
             xml-view-content (str (if xml-content xml-content (generate-standard-content xml-view-namespace (str "[:p \"You can change this text in app/views/" (loading-utils/dashes-to-underscores controller) "/" (. xml-view-file getName) "\"]"))))]
         (file-utils/write-file-content xml-view-file xml-view-content))))
 
@@ -50,13 +51,10 @@ inner-content is added to the body of the xml view code."}
                 (if view-file
                   (generate-file-content view-file controller nil)))
               (view-test-generator/generate-unit-test controller action silent))
-            (if (not silent)
-              (do
-                (println "Could not find views directory.")
-                (println view-directory)))))
+            (logging/error (str "Could not find views directory: " view-directory))))
         (view-usage))))
         
 (defn 
 #^{:doc "Generates a migration file for the migration name given in params."}
-  generate-view [params]
+  generate [params]
   (generate-xml-view-file (first params) (second params) false))
